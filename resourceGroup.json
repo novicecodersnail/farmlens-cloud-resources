@@ -1,0 +1,145 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.25.53.49325",
+      "templateHash": "12419703386770547886"
+    }
+  },
+  "parameters": {
+    "resouceGroupLocation": {
+      "type": "string",
+      "defaultValue": "westus2"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "defaultValue": "farmlensresourcegroup"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2018-05-01",
+      "name": "[parameters('resourceGroupName')]",
+      "location": "[parameters('resouceGroupLocation')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "resourcesModule",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "areazone": {
+            "value": "[parameters('resouceGroupLocation')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.25.53.49325",
+              "templateHash": "10816877953500686765"
+            }
+          },
+          "parameters": {
+            "storageAccName": {
+              "type": "string",
+              "defaultValue": "farmlensstorageacc",
+              "minLength": 3,
+              "maxLength": 24,
+              "metadata": {
+                "description": "Provide a name for the storage account. Use only lower case letters and numbers. The name must be unique across Azure."
+              }
+            },
+            "containerName": {
+              "type": "string",
+              "defaultValue": "farmlensimages",
+              "minLength": 3,
+              "maxLength": 24
+            },
+            "functionName": {
+              "type": "string",
+              "defaultValue": "farmlensfunction",
+              "minLength": 3,
+              "maxLength": 24
+            },
+            "areazone": {
+              "type": "string",
+              "defaultValue": "westus2"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('storageAccName')]",
+              "location": "[parameters('areazone')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "Storage"
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', parameters('storageAccName'), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', parameters('storageAccName'), 'default', parameters('containerName'))]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccName'), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('functionName')]",
+              "location": "[parameters('areazone')]",
+              "kind": "functionapp,linux",
+              "properties": {
+                "siteConfig": {
+                  "linuxFxVersion": "python|3.12",
+                  "appSettings": [
+                    {
+                      "name": "AzureWebJobsStorage",
+                      "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', parameters('storageAccName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccName')), '2023-01-01'))]"
+                    },
+                    {
+                      "name": "FUNCTIONS_EXTENSION_VERSION",
+                      "value": "~4"
+                    },
+                    {
+                      "name": "FUNCTIONS_WORKER_RUNTIME",
+                      "value": "python"
+                    }
+                  ]
+                },
+                "httpsOnly": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccName'))]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    }
+  ]
+}

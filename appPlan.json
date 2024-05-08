@@ -1,0 +1,117 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.25.53.49325",
+      "templateHash": "11560746658584942838"
+    }
+  },
+  "parameters": {
+    "storageAccName": {
+      "type": "string",
+      "defaultValue": "farmlensstorageacc",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Provide a name for the storage account. Use only lower case letters and numbers. The name must be unique across Azure."
+      }
+    },
+    "containerName": {
+      "type": "string",
+      "defaultValue": "farmlensimages",
+      "minLength": 3,
+      "maxLength": 24
+    },
+    "functionName": {
+      "type": "string",
+      "defaultValue": "farmlensfunction",
+      "minLength": 3,
+      "maxLength": 24
+    },
+    "areazone": {
+      "type": "string",
+      "defaultValue": "westus2"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('storageAccName')]",
+      "location": "[parameters('areazone')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "Storage"
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}', parameters('storageAccName'), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}/{2}', parameters('storageAccName'), 'default', parameters('containerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('functionName')]",
+      "location": "[parameters('areazone')]",
+      "kind": "functionapp,linux",
+      "properties": {
+        "reserved": true,
+        "siteConfig": {
+          "linuxFxVersion": "python|3.10",
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccName')), '2023-01-01').keys[0].value)]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "python"
+            },
+            {
+              "name": "ROBOFLOW_API_KEY",
+              "value": "jpZTS7Js7jMVbxeQnxIX"
+            },
+            {
+              "name": "ROBOFLOW_API_URL",
+              "value": "http://detect.roboflow.com"
+            },
+            {
+              "name": "ROBOFLOW_WORKSPACE",
+              "value": "strawberry-object-detection"
+            },
+            {
+              "name": "ROBOFLOW_MODEL_VERSION",
+              "value": "14"
+            },
+            {
+              "name": "AzureWebJobsFeatureFlags",
+              "value": "EnableWorkerIndexing"
+            }
+          ]
+        },
+        "httpsOnly": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccName'))]"
+      ]
+    }
+  ]
+}
